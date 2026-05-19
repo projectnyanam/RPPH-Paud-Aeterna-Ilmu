@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "schoolAddress": { "type": "string" },
+        "monetagLink": { "type": "string" },
+        "isPro": { "type": "boolean", "default": false },
+        "dailyGenerations": { "type": "integer", "default": 0 },
+        "lastGenerationDate": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "RPPH": {
+      "title": "RPPH",
+      "description": "Daily Lesson Plan for TK",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "className": { "type": "string" },
+        "date": { "type": "string" },
+        "ageGroup": { "type": "string" },
+        "week": { "type": "string" },
+        "day": { "type": "string" },
+        "theme": { "type": "string" },
+        "subTheme": { "type": "string" },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "activitiesBySection": { "type": "object" },
+        "assessment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "teacherName", "date", "theme"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Custom activity created by user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "duration": { "type": "string" },
+        "aspects": { "type": "array", "items": { "type": "string" } },
+        "ages": { "type": "array", "items": { "type": "string" } },
+        "materials": { "type": "array", "items": { "type": "string" } },
+        "learningObjectives": { "type": "array", "items": { "type": "string" } },
+        "assessmentMethods": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "rpphs/{rpphId}": {
+      "schema": "RPPH",
+      "description": "RPPH documents"
+    },
+    "activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Custom activities created by users"
+    }
+  }
+}

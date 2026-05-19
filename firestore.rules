@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Master Gate / Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Profile ---
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'schoolName', 'schoolAddress', 'updatedAt'])
+      );
+
+      // Special rule: only system/server should ideally update this, but for simulation we allow limited fields
+      allow update: if isOwner(userId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['isPro', 'dailyGenerations', 'lastGenerationDate', 'updatedAt'])
+      );
+
+      function isValidUser(data) {
+        return data.uid == request.auth.uid &&
+               data.email is string && data.email.size() <= 256 &&
+               (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+               (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() <= 128)) &&
+               (!('schoolAddress' in data) || (data.schoolAddress is string && data.schoolAddress.size() <= 512)) &&
+               (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2048));
+      }
+    }
+
+    // --- RPPHs ---
+    match /rpphs/{rpphId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidRPPH(incoming());
+      allow update: if isOwner(existing().userId) && isValidRPPH(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['teacherName', 'schoolName', 'schoolAddress', 'className', 'date', 'theme', 'subTheme', 'goals', 'activitiesBySection', 'assessment', 'identitas', 'materi', 'tujuanPembelajaran', 'alatBahan', 'kegiatan', 'rencanaPenilaian', 'updatedAt'])
+      );
+      allow delete: if isOwner(existing().userId);
+
+      function isValidRPPH(data) {
+        return data.userId == request.auth.uid &&
+               data.teacherName is string && data.teacherName.size() <= 128 &&
+               (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() <= 128)) &&
+               (!('schoolAddress' in data) || (data.schoolAddress is string && data.schoolAddress.size() <= 512)) &&
+               data.theme is string && data.theme.size() <= 128 &&
+               data.date is string && data.date.size() <= 32;
+      }
+    }
+
+    // --- Activities ---
+    match /activities/{activityId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidActivity(incoming());
+      allow update: if isOwner(existing().userId) && isValidActivity(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'type', 'duration', 'aspects', 'ages', 'materials', 'learningObjectives', 'assessmentMethods', 'icon'])
+      );
+      allow delete: if isOwner(existing().userId);
+
+      function isValidActivity(data) {
+        return data.userId == request.auth.uid &&
+               data.title is string && data.title.size() <= 256;
+      }
+    }
+  }
+}

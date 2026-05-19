@@ -1,11 +1,26 @@
-<div align="center">
+# RPPH Ceria - Portal Guru TK
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Aplikasi perancangan RPPH (Rencana Pelaksanaan Pembelajaran Harian) untuk guru Taman Kanak-kanak yang didukung oleh kecerdasan buatan (Gemini AI).
 
-  <h1>Built with AI Studio</h2>
+## Fitur Utama
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+- **Pembuat RPPH Otomatis**: Menghasilkan rencana harian mendetail berdasarkan tema, sub-tema, dan kelompok usia.
+- **Pustaka Kegiatan**: Ratusan ide kegiatan TK yang bisa dipilih dan dikustomisasi.
+- **Buku Referensi**: Panduan praktis aspek perkembangan anak dan tips pedagogi.
+- **Export PDF & Word**: Cetak atau simpan rencana ke format dokumen profesional.
+- **Responsif**: Dapat diakses melalui smartphone, tablet, maupun laptop.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Teknologi
 
-</div>
+- **Frontend**: React 19, Vite, Tailwind CSS, Motion.
+- **Backend**: Node.js, Express.
+- **AI**: Google Gemini API (@google/genai).
+- **Export**: jsPDF, html-to-image.
+
+## Persyaratan Lingkungan
+
+Buat file `.env` dan tambahkan kunci API berikut:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
