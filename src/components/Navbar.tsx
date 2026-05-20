@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home as HomeIcon, Sparkles, BookOpen, Library, Save, ChevronDown, Menu, X, LogOut, Settings as SettingsIcon, Crown } from 'lucide-react';
+import { Home as HomeIcon, Sparkles, BookOpen, Library, Save, ChevronDown, Menu, X, LogOut, Settings as SettingsIcon, Crown, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
@@ -64,16 +64,6 @@ export default function Navbar({ currentPage, onNavigate, userName = "Guru" }: N
 
         {/* User Profile & Mobile Toggle */}
         <div className="flex items-center gap-2 md:gap-3 lg:pl-6 lg:border-l lg:border-gray-100">
-          {!profile?.isPro && (
-            <button 
-              onClick={() => navigate('upgrade')}
-              className="hidden lg:flex items-center gap-2 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 px-4 py-2 rounded-xl text-xs font-bold shadow-lg hover:shadow-amber-200 transition-all active:scale-95"
-            >
-              <Crown size={14} fill="currentColor" />
-              Upgrade Premium
-            </button>
-          )}
-          
           <div className="hidden sm:flex items-center gap-3 relative">
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -99,7 +89,7 @@ export default function Navbar({ currentPage, onNavigate, userName = "Guru" }: N
 
             {/* Profile Dropdown */}
             {isProfileOpen && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden">
                 <button 
                   onClick={() => {
                     logout();

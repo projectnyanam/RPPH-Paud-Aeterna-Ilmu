@@ -11,6 +11,7 @@ interface UserProfile {
   schoolName?: string;
   schoolAddress?: string;
   monetagLink?: string;
+  isAdmin?: boolean;
   isPro?: boolean;
   dailyGenerations?: number;
   lastGenerationDate?: string;

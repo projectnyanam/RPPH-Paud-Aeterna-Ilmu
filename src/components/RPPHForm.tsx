@@ -138,27 +138,6 @@ export default function RPPHForm({ onGenerate, loading }: RPPHFormProps) {
 
   return (
     <div className="space-y-8 md:space-y-12 pb-32">
-      {!profile?.isPro && (
-        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
-               <Sparkles size={20} />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-amber-900 leading-tight">Paket Gratis</p>
-              <p className="text-xs text-amber-700 font-medium">Sisa kuota harian: {3 - (profile?.lastGenerationDate === new Date().toISOString().split('T')[0] ? (profile?.dailyGenerations || 0) : 0)} / 3 RPPH</p>
-            </div>
-          </div>
-          <button 
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'upgrade' }))}
-            className="text-[10px] font-bold bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-all"
-          >
-            Hapus Batasan
-          </button>
-        </div>
-      )}
-
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end no-print gap-4">
         <div>
            <div className="flex items-center gap-3 text-orange-500 mb-2">

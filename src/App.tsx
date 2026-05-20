@@ -7,7 +7,8 @@ import Library from './components/Library';
 import Reference from './components/Reference';
 import Login from './components/Login';
 import Settings from './components/Settings';
-import Upgrade from './components/Upgrade';
+import AdminDashboard from './components/AdminDashboard';
+import AdminLogin from './components/AdminLogin';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertCircle, History, Trash2, FileText, Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
@@ -17,6 +18,13 @@ import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, 
 export default function App() {
   const { user, profile } = useAuth();
   const [currentPage, setCurrentPage] = useState('home');
+  const [isAdminPortal, setIsAdminPortal] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('portal') === 'admin' || localStorage.getItem('admin_authenticated') === 'true';
+  });
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => 
+    localStorage.getItem('admin_authenticated') === 'true'
+  );
   const [history, setHistory] = useState<any[]>([]);
   const [currentRPPH, setCurrentRPPH] = useState<any | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -62,6 +70,26 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // Admin Portal Views
+  if (isAdminPortal) {
+    if (!isAdminAuthenticated) {
+      return <AdminLogin onLogin={() => {
+        setIsAdminAuthenticated(true);
+        localStorage.setItem('admin_authenticated', 'true');
+      }} />;
+    }
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <AdminDashboard onBack={() => {
+          setIsAdminAuthenticated(false);
+          setIsAdminPortal(false);
+          localStorage.removeItem('admin_authenticated');
+          window.location.href = '/'; // Clear portal param
+        }} />
+      </div>
+    );
+  }
+
   if (!user) {
     return <Login />;
   }
@@ -69,17 +97,6 @@ export default function App() {
   const handleGenerate = async (formData: any) => {
     if (!user) return;
     
-    // Check Limits for non-pro users
-    const today = new Date().toISOString().split('T')[0];
-    if (!profile?.isPro) {
-      const currentGenCount = profile?.lastGenerationDate === today ? (profile?.dailyGenerations || 0) : 0;
-      if (currentGenCount >= 3) {
-        setError('Limit harian tercapai. Paket gratis terbatas 3 RPPH per hari. Silakan upgrade ke Premium untuk akses tak terbatas.');
-        setCurrentPage('upgrade');
-        return;
-      }
-    }
-
     setIsGenerating(true);
     setError(null);
     try {
@@ -107,15 +124,6 @@ export default function App() {
         date: formData.date,
         theme: formData.theme,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      // Update User Generation Stats
-      const userRef = doc(db, 'users', user.uid);
-      const isNewDay = profile?.lastGenerationDate !== today;
-      await updateDoc(userRef, {
-        dailyGenerations: isNewDay ? 1 : (profile?.dailyGenerations || 0) + 1,
-        lastGenerationDate: today,
         updatedAt: serverTimestamp()
       });
 
@@ -263,12 +271,6 @@ export default function App() {
           {currentPage === 'settings' && (
             <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Settings />
-            </motion.div>
-          )}
-
-          {currentPage === 'upgrade' && (
-            <motion.div key="upgrade" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Upgrade />
             </motion.div>
           )}
         </AnimatePresence>

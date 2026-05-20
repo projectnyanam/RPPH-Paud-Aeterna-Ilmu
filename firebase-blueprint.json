@@ -11,6 +11,7 @@
         "schoolName": { "type": "string" },
         "schoolAddress": { "type": "string" },
         "monetagLink": { "type": "string" },
+        "isAdmin": { "type": "boolean", "default": false },
         "isPro": { "type": "boolean", "default": false },
         "dailyGenerations": { "type": "integer", "default": 0 },
         "lastGenerationDate": { "type": "string" },

@@ -32,6 +32,18 @@ function getAI() {
 }
 
 // API Routes
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body;
+  const adminUser = process.env.ADMIN_USERNAME || "admin_paud";
+  const adminPass = process.env.ADMIN_PASSWORD || "admin123secret";
+
+  if (username === adminUser && password === adminPass) {
+    res.json({ success: true, message: "Login berhasil" });
+  } else {
+    res.status(401).json({ success: false, message: "Kredensial tidak valid" });
+  }
+});
+
 app.post("/api/generate-rpph", async (req, res) => {
   const { 
     theme, 
