@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, updateDoc } from 'firebase/firestore';
 
 interface UserProfile {
   uid: string;
@@ -50,14 +50,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const userDoc = await getDoc(userRef);
           if (!userDoc.exists()) {
-            await setDoc(userRef, {
+            const newProfile: any = {
               uid: currentUser.uid,
-              displayName: currentUser.displayName,
               email: currentUser.email,
-              photoURL: currentUser.photoURL,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp()
-            });
+            };
+            if (currentUser.displayName) newProfile.displayName = currentUser.displayName;
+            if (currentUser.photoURL) newProfile.photoURL = currentUser.photoURL;
+            await setDoc(userRef, newProfile);
+          } else {
+            const existingData = userDoc.data();
+            const updates: any = {};
+            if (currentUser.displayName && existingData?.displayName !== currentUser.displayName) {
+              updates.displayName = currentUser.displayName;
+            }
+            if (currentUser.photoURL && existingData?.photoURL !== currentUser.photoURL) {
+              updates.photoURL = currentUser.photoURL;
+            }
+            if (Object.keys(updates).length > 0) {
+              updates.updatedAt = serverTimestamp();
+              await updateDoc(userRef, updates);
+            }
           }
         } catch (error) {
           console.error("Profile sync error:", error);
