@@ -172,95 +172,141 @@ app.post("/api/generate-rpph", requireAuth, async (req, res) => {
 
     console.log("Generating RPPH with prompt for theme:", theme);
 
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          required: ["identitas", "materi", "tujuanPembelajaran", "alatBahan", "kegiatan", "rencanaPenilaian"],
-          properties: {
-            identitas: {
+    if (req.body.docId) {
+       res.status(202).json({ status: "processing" });
+    }
+
+    const processBackend = async () => {
+      try {
+        const result = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
               type: Type.OBJECT,
-              required: ["satuanPendidikan", "lokasi", "guru", "kelas", "semester", "minggu", "hariKe", "hariTanggal", "kelompokUsia", "temaSubTema"],
+              required: ["identitas", "materi", "tujuanPembelajaran", "alatBahan", "kegiatan", "rencanaPenilaian"],
               properties: {
-                satuanPendidikan: { type: Type.STRING },
-                lokasi: { type: Type.STRING },
-                guru: { type: Type.STRING },
-                kelas: { type: Type.STRING },
-                semester: { type: Type.STRING },
-                minggu: { type: Type.STRING },
-                hariKe: { type: Type.STRING },
-                hariTanggal: { type: Type.STRING },
-                kelompokUsia: { type: Type.STRING },
-                temaSubTema: { type: Type.STRING }
+                identitas: {
+                  type: Type.OBJECT,
+                  required: ["satuanPendidikan", "lokasi", "guru", "kelas", "semester", "minggu", "hariKe", "hariTanggal", "kelompokUsia", "temaSubTema"],
+                  properties: {
+                    satuanPendidikan: { type: Type.STRING },
+                    lokasi: { type: Type.STRING },
+                    guru: { type: Type.STRING },
+                    kelas: { type: Type.STRING },
+                    semester: { type: Type.STRING },
+                    minggu: { type: Type.STRING },
+                    hariKe: { type: Type.STRING },
+                    hariTanggal: { type: Type.STRING },
+                    kelompokUsia: { type: Type.STRING },
+                    temaSubTema: { type: Type.STRING }
+                  }
+                },
+                materi: { type: Type.ARRAY, items: { type: Type.STRING } },
+                tujuanPembelajaran: { type: Type.ARRAY, items: { type: Type.STRING } },
+                alatBahan: { type: Type.ARRAY, items: { type: Type.STRING } },
+                kegiatan: {
+                  type: Type.OBJECT,
+                  required: ["pembukaan", "inti", "istirahat", "penutup"],
+                  properties: {
+                    pembukaan: {
+                      type: Type.OBJECT,
+                      required: ["durasi", "langkah"],
+                      properties: {
+                        durasi: { type: Type.STRING },
+                        langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
+                      }
+                    },
+                    inti: {
+                      type: Type.OBJECT,
+                      required: ["durasi", "langkah"],
+                      properties: {
+                        durasi: { type: Type.STRING },
+                        langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
+                      }
+                    },
+                    istirahat: {
+                      type: Type.OBJECT,
+                      required: ["durasi", "langkah"],
+                      properties: {
+                        durasi: { type: Type.STRING },
+                        langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
+                      }
+                    },
+                    penutup: {
+                      type: Type.OBJECT,
+                      required: ["durasi", "langkah"],
+                      properties: {
+                        durasi: { type: Type.STRING },
+                        langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
+                      }
+                    }
+                  }
+                },
+                rencanaPenilaian: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
-            },
-            materi: { type: Type.ARRAY, items: { type: Type.STRING } },
-            tujuanPembelajaran: { type: Type.ARRAY, items: { type: Type.STRING } },
-            alatBahan: { type: Type.ARRAY, items: { type: Type.STRING } },
-            kegiatan: {
-              type: Type.OBJECT,
-              required: ["pembukaan", "inti", "istirahat", "penutup"],
-              properties: {
-                pembukaan: {
-                  type: Type.OBJECT,
-                  required: ["durasi", "langkah"],
-                  properties: {
-                    durasi: { type: Type.STRING },
-                    langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  }
-                },
-                inti: {
-                  type: Type.OBJECT,
-                  required: ["durasi", "langkah"],
-                  properties: {
-                    durasi: { type: Type.STRING },
-                    langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  }
-                },
-                istirahat: {
-                  type: Type.OBJECT,
-                  required: ["durasi", "langkah"],
-                  properties: {
-                    durasi: { type: Type.STRING },
-                    langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  }
-                },
-                penutup: {
-                  type: Type.OBJECT,
-                  required: ["durasi", "langkah"],
-                  properties: {
-                    durasi: { type: Type.STRING },
-                    langkah: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  }
-                }
-              }
-            },
-            rencanaPenilaian: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
+          },
+        });
+
+        const text = result.text?.trim();
+        if (!text) {
+          throw new Error("AI tidak memberikan respon. Silakan coba lagi.");
+        }
+
+        try {
+          const parsedData = JSON.parse(text);
+          console.log("Successfully parsed RPPH data");
+          
+          if (req.body.docId) {
+            try {
+               await admin.firestore().collection('rpphs').doc(req.body.docId).update({
+                 ...parsedData,
+                 status: 'completed'
+               });
+               console.log(`Document ${req.body.docId} updated with completed RPPH.`);
+            } catch (fbErr) {
+               console.error("Firebase Update Error:", fbErr);
+            }
+          } else {
+            // Fallback for older clients
+            if (!res.headersSent) res.json(parsedData);
+          }
+        } catch (parseError) {
+          console.error("JSON Parse Error. Raw text:", text);
+          if (req.body.docId) {
+             await admin.firestore().collection('rpphs').doc(req.body.docId).update({
+                status: 'error',
+                errorMessage: 'Gagal memproses format RPPH dari AI.'
+             });
+          } else {
+             if (!res.headersSent) res.status(500).json({ error: "Gagal memproses data RPPH. Silakan coba sesaat lagi." });
           }
         }
-      },
-    });
-
-    const text = result.text?.trim();
-    if (!text) {
-      throw new Error("AI tidak memberikan respon. Silakan coba lagi.");
-    }
-
-    try {
-      const parsedData = JSON.parse(text);
-      console.log("Successfully parsed RPPH data");
-      res.json(parsedData);
-    } catch (parseError) {
-      console.error("JSON Parse Error. Raw text:", text);
-      res.status(500).json({ error: "Gagal memproses data RPPH. Silakan coba sesaat lagi." });
+      } catch (error: any) {
+        console.error("Gemini Error:", error);
+        const message = error.message || "Terjadi kesalahan pada server AI.";
+        if (req.body.docId) {
+           await admin.firestore().collection('rpphs').doc(req.body.docId).update({
+              status: 'error',
+              errorMessage: message
+           });
+        } else {
+           if (!res.headersSent) res.status(500).json({ error: message });
+        }
+      }
+    };
+    
+    // Process backend asynchronously without waiting if docId is provided
+    if (req.body.docId) {
+        processBackend();
+    } else {
+        await processBackend();
     }
   } catch (error: any) {
-    console.error("Gemini Error:", error);
-    const message = error.message || "Terjadi kesalahan pada server AI.";
-    res.status(500).json({ error: message });
+    console.error("Outer Request Error:", error);
+    if (!res.headersSent) res.status(500).json({ error: "Terjadi kesalahan sistem." });
   }
 });
 

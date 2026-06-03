@@ -7,6 +7,12 @@
   external_node_modules = ["express", "firebase-admin", "@google/genai"]
 
 [[redirects]]
+  from = "/api/generate-rpph"
+  to = "/.netlify/functions/generate-rpph-background"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200

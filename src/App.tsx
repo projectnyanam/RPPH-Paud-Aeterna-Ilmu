@@ -12,7 +12,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { AlertCircle, History, Trash2, FileText, Loader2, Search } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { db, handleFirestoreError, OperationType } from './lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, setDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 export default function App() {
   const { user, profile } = useAuth();
@@ -135,6 +135,22 @@ export default function App() {
     setIsGenerating(true);
     setError(null);
     try {
+      const rpphRef = doc(collection(db, 'rpphs'));
+      const docId = rpphRef.id;
+
+      await setDoc(rpphRef, {
+        userId: user.uid,
+        teacherName: formData.teacherName,
+        schoolName: formData.schoolName,
+        schoolAddress: formData.schoolAddress,
+        className: formData.className,
+        date: formData.date,
+        theme: formData.theme,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: 'generating'
+      });
+
       const idToken = await user.getIdToken();
       const response = await fetch('/api/generate-rpph', {
         method: 'POST',
@@ -142,56 +158,43 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, docId }),
       });
 
-      let data;
-      let errData;
-      
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        if (!response.ok) {
-          errData = await response.json();
-          throw new Error(errData.error || 'Terjadi kesalahan saat membuat RPPH');
+      if (!response.ok && response.status !== 202) {
+        let errStr = `Server bermasalah (${response.status} ${response.statusText}). Silakan coba lagi.`;
+        if (response.headers.get('content-type')?.includes('application/json')) {
+          const errData = await response.json();
+          errStr = errData.error || errStr;
         }
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        console.error('Server returned non-JSON response:', text);
-        if (response.status === 404) {
-          throw new Error('API tidak ditemukan (404). Jika mengakses aplikasi yang di-publish, tekan tombol "Share" lagi untuk menerapkan update backend terbaru.');
-        }
-        throw new Error(`Server bermasalah (${response.status} ${response.statusText}). Silakan coba lagi.`);
+        await updateDoc(rpphRef, { status: 'error', errorMessage: errStr });
+        throw new Error(errStr);
       }
-      
-      // Save to Firestore
-      const rpphRef = collection(db, 'rpphs');
-      const docRef = await addDoc(rpphRef, {
-        ...data,
-        userId: user.uid,
-        teacherName: formData.teacherName,
-        schoolName: formData.schoolName,
-        schoolAddress: formData.schoolAddress,
-        date: formData.date,
-        theme: formData.theme,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+
+      const unsubscribe = onSnapshot(rpphRef, (snapshot) => {
+        const data = snapshot.data();
+        if (data && data.status === 'completed') {
+           setCurrentRPPH({
+             ...data,
+             id: docId,
+             createdAt: new Date().toISOString()
+           });
+           setCurrentPage('view');
+           setIsGenerating(false);
+           unsubscribe();
+        } else if (data && data.status === 'error') {
+           setError(data.errorMessage || "Terjadi kesalahan saat memproses RPPH");
+           setIsGenerating(false);
+           unsubscribe();
+        }
+      }, (err) => {
+         setError("Gagal menghubungkan ke server untuk status.");
+         setIsGenerating(false);
+         unsubscribe();
       });
 
-      const newRPPH = {
-        ...data,
-        id: docRef.id,
-        teacherName: formData.teacherName,
-        schoolName: formData.schoolName,
-        className: formData.className,
-        createdAt: new Date().toISOString()
-      };
-
-      setCurrentRPPH(newRPPH);
-      setCurrentPage('view');
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setIsGenerating(false);
     }
   };
