@@ -213,13 +213,6 @@ export default function Login() {
             </button>
           </div>
         </div>
-
-        <div className="bg-gray-50 p-6 flex justify-center">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-            <Sparkles size={12} className="text-indigo-400" />
-            Powered by Gemini AI
-          </p>
-        </div>
       </motion.div>
     </div>
   );

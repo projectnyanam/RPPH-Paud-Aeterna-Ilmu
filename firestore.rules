@@ -58,21 +58,18 @@ service cloud.firestore {
 
     // --- RPPHs ---
     match /rpphs/{rpphId} {
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidRPPH(incoming());
-      allow update: if isOwner(existing().userId) && isValidRPPH(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['teacherName', 'schoolName', 'schoolAddress', 'className', 'date', 'theme', 'subTheme', 'goals', 'activitiesBySection', 'assessment', 'identitas', 'materi', 'tujuanPembelajaran', 'alatBahan', 'kegiatan', 'rencanaPenilaian', 'updatedAt'])
-      );
+      allow update: if isOwner(existing().userId) && isValidRPPH(incoming());
       allow delete: if isOwner(existing().userId);
 
       function isValidRPPH(data) {
         return data.userId == request.auth.uid &&
-               data.teacherName is string && data.teacherName.size() <= 128 &&
-               (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() <= 128)) &&
-               (!('schoolAddress' in data) || (data.schoolAddress is string && data.schoolAddress.size() <= 512)) &&
-               data.theme is string && data.theme.size() <= 128 &&
-               data.date is string && data.date.size() <= 32;
+               (!('teacherName' in data) || data.teacherName == null || (data.teacherName is string && data.teacherName.size() <= 256)) &&
+               (!('schoolName' in data) || data.schoolName == null || (data.schoolName is string && data.schoolName.size() <= 256)) &&
+               (!('schoolAddress' in data) || data.schoolAddress == null || (data.schoolAddress is string && data.schoolAddress.size() <= 512)) &&
+               (!('theme' in data) || data.theme == null || (data.theme is string && data.theme.size() <= 256)) &&
+               (!('date' in data) || data.date == null || (data.date is string && data.date.size() <= 64));
       }
     }
 

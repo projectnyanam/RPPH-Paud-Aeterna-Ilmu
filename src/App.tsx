@@ -9,7 +9,7 @@ import Login from './components/Login';
 import Settings from './components/Settings';
 import AdminDashboard from './components/AdminDashboard';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertCircle, History, Trash2, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, History, Trash2, FileText, Loader2, Search } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
@@ -27,6 +27,18 @@ export default function App() {
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter history based on search query
+  const filteredHistory = React.useMemo(() => {
+    if (!searchQuery.trim()) return history;
+    const lowerQuery = searchQuery.toLowerCase();
+    return history.filter(item => {
+      const tema = item.identitas?.tema?.toLowerCase() || '';
+      const tanggal = item.identitas?.hariTanggal?.toLowerCase() || '';
+      return tema.includes(lowerQuery) || tanggal.includes(lowerQuery);
+    });
+  }, [history, searchQuery]);
 
   // Listen for custom navigation events (from components deeper in tree)
   useEffect(() => {
@@ -133,12 +145,21 @@ export default function App() {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Terjadi kesalahan saat membuat RPPH');
+      let data;
+      let errData;
+      
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        if (!response.ok) {
+          errData = await response.json();
+          throw new Error(errData.error || 'Terjadi kesalahan saat membuat RPPH');
+        }
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Server returned non-JSON response:', text);
+        throw new Error(`Server bermasalah (${response.status} ${response.statusText}). Silakan coba lagi.`);
       }
-
-      const data = await response.json();
       
       // Save to Firestore
       const rpphRef = collection(db, 'rpphs');
@@ -247,6 +268,19 @@ export default function App() {
                 <p className="text-lg text-gray-500 mt-2">Daftar rancangan pembelajaran yang telah Anda buat.</p>
               </header>
 
+              <div className="relative max-w-xl">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  <Search size={20} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Cari berdasarkan tema atau tanggal..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                />
+              </div>
+
               {fetchingHistory ? (
                 <div className="flex flex-col items-center justify-center py-20 space-y-4">
                   <Loader2 size={40} className="text-indigo-500 animate-spin" />
@@ -265,9 +299,13 @@ export default function App() {
                      Mulai Buat Sekarang
                    </button>
                 </div>
+              ) : filteredHistory.length === 0 ? (
+                <div className="bg-white p-20 rounded-[32px] text-center space-y-4 border border-gray-100 card-shadow">
+                   <p className="text-gray-400 font-medium tracking-tight">Tidak ada RPPH yang cocok dengan pencarian Anda.</p>
+                </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-6">
-                  {history.map((item) => (
+                  {filteredHistory.map((item) => (
                     <div 
                       key={item.id} 
                       className="bg-white p-8 rounded-[32px] border border-gray-100 card-shadow flex justify-between items-start group"

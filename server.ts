@@ -10,7 +10,7 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 import firebaseConfig from "./firebase-applet-config.json";
 
@@ -174,7 +174,7 @@ app.post("/api/generate-rpph", requireAuth, async (req, res) => {
     console.log("Generating RPPH with prompt for theme:", theme);
 
     const result = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
@@ -263,6 +263,18 @@ app.post("/api/generate-rpph", requireAuth, async (req, res) => {
     const message = error.message || "Terjadi kesalahan pada server AI.";
     res.status(500).json({ error: message });
   }
+});
+
+// Generic API error handler
+app.use('/api/*', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && 'status' in err && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: "Invalid JSON format in the request payload." });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: "Payload terlalu besar." });
+  }
+  console.error("Express API Error:", err);
+  res.status(500).json({ error: "Terjadi kesalahan pada server AI." });
 });
 
 // Vite middleware flow
