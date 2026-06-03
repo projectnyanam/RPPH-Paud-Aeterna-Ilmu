@@ -265,7 +265,63 @@ export default function Library({ isPicker, onSelect, onClose }: LibraryProps) {
             />
          </div>
 
-         <div className="space-y-6">
+         {/* Fitur Kurikulum Pintar */}
+         <div className="space-y-4 pt-4 border-t border-gray-50">
+            <div className="flex items-center gap-2">
+               <span className="p-2 bg-purple-100 text-purple-600 rounded-xl">🧠</span>
+               <h3 className="font-bold text-gray-900">Kurikulum Pintar: Fase Kognitif</h3>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">Filter kegiatan otomatis berdasarkan tahapan perkembangan kognitif anak (Teori Piaget).</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               {[
+                 { 
+                   id: '3-4 Tahun', 
+                   title: 'Pra-Operasional Simbolik', 
+                   age: '3-4 Tahun', 
+                   desc: 'Eksplorasi sensorik, imajinasi awal, dan pengenalan simbol sederhana.',
+                   icon: '🧸',
+                   color: 'bg-rose-50 border-rose-100 text-rose-600',
+                   activeColor: 'ring-2 ring-rose-400 bg-rose-100 border-rose-200'
+                 },
+                 { 
+                   id: '4-5 Tahun', 
+                   title: 'Pra-Operasional Transisi', 
+                   age: '4-5 Tahun', 
+                   desc: 'Eksplorasi rasa ingin tahu, pengenalan konsep dasar klasifikasi.',
+                   icon: '🧩',
+                   color: 'bg-amber-50 border-amber-100 text-amber-600',
+                   activeColor: 'ring-2 ring-amber-400 bg-amber-100 border-amber-200'
+                 },
+                 { 
+                   id: '5-6 Tahun', 
+                   title: 'Pra-Operasional Intuitif', 
+                   age: '5-6 Tahun', 
+                   desc: 'Pemikiran lebih logis, klasifikasi bentuk/warna, dan pemecahan masalah lanjutan.',
+                   icon: '🔍',
+                   color: 'bg-blue-50 border-blue-100 text-blue-600',
+                   activeColor: 'ring-2 ring-blue-400 bg-blue-100 border-blue-200'
+                 }
+               ].map((phase) => {
+                 const isActive = activeAge === phase.id;
+                 return (
+                   <button
+                     key={phase.id}
+                     onClick={() => setActiveAge(isActive ? 'Semua Usia' : phase.id)}
+                     className={`flex flex-col text-left p-5 rounded-2xl border transition-all hover:scale-[1.02] ${isActive ? phase.activeColor : phase.color + ' opacity-70 hover:opacity-100'}`}
+                   >
+                     <div className="flex items-center justify-between mb-3 w-full">
+                       <span className="text-3xl">{phase.icon}</span>
+                       <span className="text-[10px] uppercase tracking-wider font-bold bg-white/50 px-2 py-1 rounded-lg">{phase.age}</span>
+                     </div>
+                     <h4 className="font-bold text-sm mb-1 text-gray-900">{phase.title}</h4>
+                     <p className="text-xs text-gray-600 leading-relaxed font-medium">{phase.desc}</p>
+                   </button>
+                 );
+               })}
+            </div>
+         </div>
+
+         <div className="space-y-6 pt-6 border-t border-gray-50">
             <div className="space-y-3">
                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">SUMBER</label>
                <div className="flex flex-wrap gap-2 md:gap-3">
@@ -278,22 +334,6 @@ export default function Library({ isPicker, onSelect, onClose }: LibraryProps) {
                       }`}
                     >
                       {opt} {opt === 'Bawaan' ? BUILT_IN_ACTIVITIES.length : opt === 'Buatan Saya' ? customActivities.length : allActivities.length}
-                    </button>
-                  ))}
-               </div>
-            </div>
-            <div className="space-y-3">
-               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">KELOMPOK USIA</label>
-               <div className="flex flex-wrap gap-3">
-                  {['Semua Usia', '3-4 Tahun', '4-5 Tahun', '5-6 Tahun'].map((opt) => (
-                    <button 
-                      key={opt}
-                      onClick={() => setActiveAge(opt)}
-                      className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${
-                        activeAge === opt ? 'bg-[#00a884] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      {opt}
                     </button>
                   ))}
                </div>

@@ -1,8 +1,7 @@
 import React, { useRef } from 'react';
 import { FileText, Printer, ChevronLeft, Calendar, UserCheck, Package, ListChecks, CheckCircle2, BookOpen, Download, FileJson, FileType, Clock, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
-import jsPDF from 'jspdf';
-import { toPng } from 'html-to-image';
+import { useReactToPrint } from 'react-to-print';
 import { useAuth } from '../context/AuthContext';
 
 interface RPPHViewProps {
@@ -19,54 +18,20 @@ export default function RPPHView({ data, onBack }: RPPHViewProps) {
   // GANTI LINK DI BAWAH INI DENGAN DIRECT LINK MONETAG ANDA
   const MONETAG_DIRECT_LINK = "https://omg10.com/4/10984630"; // Contoh link
 
-  const handlePrint = () => {
-    window.open(MONETAG_DIRECT_LINK, '_blank');
-    window.print();
-  };
-
-  const exportToPDF = async () => {
-    if (!contentRef.current) return;
-    
-    window.open(MONETAG_DIRECT_LINK, '_blank');
-    
-    try {
-      const dataUrl = await toPng(contentRef.current, {
-        quality: 1.0,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      });
-      
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-      
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      // Hitung tinggi gambar dalam satuan PDF (mm)
-      const imgPDFHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      
-      let heightLeft = imgPDFHeight;
-      let position = 0;
-
-      // Halaman pertama
-      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgPDFHeight);
-      heightLeft -= pageHeight;
-
-      // Tambahkan halaman baru jika konten masih ada (tinggi > A4)
-      while (heightLeft > 0) {
-        position = heightLeft - imgPDFHeight;
-        pdf.addPage();
-        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgPDFHeight);
-        heightLeft -= pageHeight;
-      }
-      
-      pdf.save(`RPPH-${data.identitas?.temaSubTema || 'Taman-Kanak-Kanak'}.pdf`);
-    } catch (err) {
-      console.error('oops, something went wrong!', err);
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef,
+    documentTitle: `RPPH-${data.identitas?.temaSubTema || 'Taman-Kanak-Kanak'}`,
+    onBeforePrint: () => {
+      // Optional: open monetization link before printing
+      window.open(MONETAG_DIRECT_LINK, '_blank');
+      return Promise.resolve();
     }
+  });
+
+  const exportToPDF = () => {
+    // react-to-print utilizes the native browser print dialogue which provides the best 
+    // "Save to PDF" experience natively (selectable text, proper vector text).
+    handlePrint();
   };
 
   const exportToWord = () => {

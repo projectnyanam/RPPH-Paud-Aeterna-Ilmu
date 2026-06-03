@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import admin from "firebase-admin";
 
 dotenv.config();
 
@@ -10,6 +11,46 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+import firebaseConfig from "./firebase-applet-config.json";
+
+// Initialize Firebase Admin (Required for Token Verification)
+if (!admin.apps?.length) {
+  try {
+    admin.initializeApp({
+      projectId: firebaseConfig.projectId
+    });
+  } catch (error) {
+    console.warn("Failed to initialize Firebase Admin automatically.", error);
+  }
+}
+
+// Middleware to verify Firebase Auth Token
+async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "Token Otentikasi tidak ditemukan." });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Error verifying auth token', error);
+    return res.status(401).json({ error: "Sesi otentikasi tidak valid atau telah berakhir." });
+  }
+}
+
+// Extend Express Request object
+declare global {
+  namespace Express {
+    interface Request {
+      user?: admin.auth.DecodedIdToken;
+    }
+  }
+}
 
 // Initialize Gemini lazily
 let aiInstance: GoogleGenAI | null = null;
@@ -32,19 +73,8 @@ function getAI() {
 }
 
 // API Routes
-app.post("/api/admin/login", (req, res) => {
-  const { username, password } = req.body;
-  const adminUser = process.env.ADMIN_USERNAME || "admin_paud";
-  const adminPass = process.env.ADMIN_PASSWORD || "admin123secret";
 
-  if (username === adminUser && password === adminPass) {
-    res.json({ success: true, message: "Login berhasil" });
-  } else {
-    res.status(401).json({ success: false, message: "Kredensial tidak valid" });
-  }
-});
-
-app.post("/api/generate-rpph", async (req, res) => {
+app.post("/api/generate-rpph", requireAuth, async (req, res) => {
   const { 
     theme, 
     subTheme, 
@@ -80,32 +110,34 @@ app.post("/api/generate-rpph", async (req, res) => {
         const acts = activities[sectionName];
         if (!acts || acts.length === 0) return "Belum ada (buatkan kegiatan kreatif)";
         return acts.map((a: any) => {
-          const materialsList = a.materials && a.materials.length > 0 ? `\n    Alat & Bahan: ${a.materials.join(', ')}` : "";
-          return `- ${a.title}: ${a.description} (Durasi: ${a.duration})${materialsList}`;
-        }).join("\n");
+          const materialsList = a.materials && a.materials.length > 0 ? `\n    Alat & Bahan yang Wajib Disebutkan di Langkah: ${a.materials.join(', ')}` : "";
+          return `- [Nama Kegiatan] ${a.title}\n   [Deskripsi] ${a.description}\n   [Durasi] ${a.duration}${materialsList}`;
+        }).join("\n\n");
       };
 
       activityInstruction = `
-      PENTING: Pengguna telah memilih kegiatan spesifik berikut. Anda WAJIB menggunakan kegiatan ini dan menguraikan langkah-langkah pelaksanaannya secara mendetail di bagian 'langkah':
+      PENTING - INTEGRASI KEGIATAN PILIHAN USER:
+      Pengguna telah memilih kegiatan spesifik berikut untuk hari ini. Anda WAJIB menggunakan aktivitas-aktivitas ini sebagai konten utama kegiatan pembelajaran Anda dan menguraikannya secara dinamis dan mendalam di bagian 'langkah':
 
-      KEGIATAN PEMBUKAAN:
+      KEGIATAN PEMBUKAAN PILIHAN USER:
       ${formatSection('Pembukaan')}
 
-      KEGIATAN INTI:
+      KEGIATAN INTI PILIHAN USER:
       ${formatSection('Kegiatan Inti')}
 
-      ISTIRAHAT:
+      ISTIRAHAT PILIHAN USER:
       ${formatSection('Istirahat')}
 
-      KEGIATAN PENUTUP:
+      KEGIATAN PENUTUP PILIHAN USER:
       ${formatSection('Penutup')}
       
-      Instruksi Langkah & Integrasi:
-      1. Untuk setiap kegiatan di atas, uraikan minimal 4-5 langkah praktis.
-      2. INTEGRASI ALAT/BAHAN: Anda WAJIB menyebutkan penggunaan Alat & Bahan yang tercantum di atas langsung di dalam narasi langkah-langkah kegiatan (misal: "Guru mengajak anak memegang [Nama Alat]...", "Anak diminta menuangkan [Nama Bahan]...").
-      3. Jangan hanya mencantumkan alat di daftar alatBahan, tapi tunjukkan aksinya di bagian langkah.
-      4. Sesuaikan durasi total di JSON dengan total durasi kegiatan yang dipilih.
-      5. Jika sesi "Belum ada" kegiatan terpilih (seperti Pembukaan/Istirahat), ciptakan kegiatan kreatif yang relevan dengan tema "${theme}" dan sub-tema "${subTheme}".
+      INSTRUKSI WAJIB PENGEMBANGAN LANGKAH (STEPS):
+      1. URUTKAN LANGKAH SECARA DETAIL: Di bagian objek "kegiatan" untuk masing-masing bagian (pembukaan, inti, istirahat, penutup), Anda harus menghasilkan minimal 5-6 langkah praktis, konkret, dan taktis yang berurutan secara logis. Setiap langkah harus berupa instruksi operasional yang interaktif antara guru dan anak.
+      2. PENYEBUTAN EKSPLISIT ALAT & BAHAN DALAM LANGKAH: Untuk setiap kegiatan di atas yang memiliki daftar "Alat & Bahan", Anda WAJIB menggambarkan penggunaan dan menyebutkan nama alat/bahan tersebut secara eksplisit di dalam kalimat langkah kegiatannya.
+         * Contoh Benar: "Guru membagikan kertas lipat biru dan lem kertas kepada anak-anak, kemudian menginstruksikan cara menempel kertas tersebut untuk membentuk kapal."
+         * Contoh Salah: "Guru membagikan bahan dan meminta anak menempelnya." (Terlalu abstrak dan tidak menyebutkan nama bahan secara eksplisit).
+      3. Jangan hanya mendaftar alat/bahan di field 'alatBahan', tapi tunjukkan aksi nyata pemakaiannya satu per satu di runtutan narasi 'langkah'.
+      4. Jika terdapat sesi yang "Belum ada" kegiatan pilihan, buat sekelompok kegiatan kreatif baru yang relevan dengan tema "${theme}" dan sub-tema "${subTheme}" serta kombinasikan dengan alat/bahan edukatif yang menarik untuk kelompok usia ${ageGroup}.
       `;
     }
 
@@ -129,15 +161,15 @@ app.post("/api/generate-rpph", async (req, res) => {
 
     ${activityInstruction}
 
-    INSTRUKSI KHUSUS INTEGRASI:
-    - Bagian 'materi' (minimal 3-4 poin): Materi harus spesifik membahas fakta/konsep dari sub-tema "${subTheme}".
-    - Bagian 'alatBahan': Kumpulkan SEMUA alat dan bahan yang disebutkan dalam langkah kegiatan ke dalam daftar ini.
-    - Bagian 'kegiatan': Ini adalah bagian naratif. Jabarkan interaksi guru-anak secara detail. Pastikan ada alur yang logis dari persiapan alat, penggunaan alat oleh anak, hingga evaluasi penggunaan alat tersebut.
-    - HUBUNGKAN sub-tema "${subTheme}" dengan alat bahan yang digunakan (misal: jika sub-tema 'Air', pastikan bahan seperti gelas atau pewarna digunakan untuk menunjukkan sifat air).
-    - JANGAN biarkan 'langkah' kosong atau terlalu singkat. Gunakan minimal 50 kata per sesi kegiatan.
+    INSTRUKSI KHUSUS INTEGRASI & STRUKTUR:
+    - Bagian 'materi' (minimal 3-4 poin): Materi harus spesifik membahas fakta, konsep, dan nilai moral dari sub-tema "${subTheme}".
+    - Bagian 'alatBahan': Kumpulkan dan tuliskan secara lengkap SEMUA alat dan bahan yang digunakan oleh anak dan guru yang disebutkan pada langkah kegiatan.
+    - Bagian 'kegiatan': Ini adalah bagian naratif yang dijabarkan per langkah (step-by-step) dalam bentuk array of strings. Jabarkan interaksi guru-anak secara konkret. Pastikan ada alur yang logis dari persiapan alat/bahan, penggunaan alat/bahan oleh anak, interaksi eksploratif, hingga beres-beres.
+    - HUBUNGKAN sub-tema "${subTheme}" secara eksplisit dengan alat bahan yang digunakan (misal: jika sub-tema 'Air', pastikan bahan seperti gelas plastik, air jernih, pewarna makanan digunakan untuk eksperimen membuktikan sifat air).
+    - JANGAN biarkan 'langkah' kosong, terlalu singkat, atau bernada umum. Setiap sesi kegiatan (pembukaan, inti, istirahat, penutup) harus dijabarkan minimal 5-6 langkah runtut dengan detail aksi konkret yang jelas.
     - LOKASI TANDA TANGAN: Ekstrak nama KECAMATAN dari 'Alamat Pendidikan' yang diberikan di atas. Jika tidak ada kecamatan, gunakan nama kota. Outputkan hasil ekstraksi ini di field 'identitas.lokasi'.
 
-    Gunakan Bahasa Indonesia yang edukatif, ramah anak, dan profesional.`;
+    Gunakan Bahasa Indonesia yang edukatif, ramah anak, ekspresif, dan profesional.`;
 
     console.log("Generating RPPH with prompt for theme:", theme);
 

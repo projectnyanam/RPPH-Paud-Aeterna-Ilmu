@@ -78,9 +78,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Listen for profile changes
-        unsubscribeProfile = onSnapshot(userRef, (doc) => {
-          if (doc.exists()) {
-            setProfile(doc.data() as UserProfile);
+        unsubscribeProfile = onSnapshot(userRef, async (profileDoc) => {
+          let isAdminStatus = false;
+          try {
+            // Check if user is in admins collection
+            const adminDoc = await getDoc(doc(db, 'admins', currentUser.uid));
+            if (adminDoc.exists()) {
+              isAdminStatus = true;
+            }
+          } catch (err) {
+            console.log('Failed to check admin status', err);
+          }
+          if (profileDoc.exists()) {
+            setProfile({ ...(profileDoc.data() as UserProfile), isAdmin: isAdminStatus });
           }
         });
       } else {

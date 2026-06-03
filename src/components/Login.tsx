@@ -27,6 +27,10 @@ export default function Login() {
       console.error("Login Error:", err);
       if (err.code === 'auth/popup-blocked') {
         setError('Popup terblokir oleh browser. Silakan buka aplikasi di tab baru menggunakan tombol di pojok kanan atas preview.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Metode masuk menggunakan akun Google belum diaktifkan di Firebase Console Anda. Silakan aktifkan penyedia/provider "Google" di menu: Authentication > Sign-in method.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError(`Domain ini (${window.location.hostname}) belum diizinkan di Firebase Console Anda. Silakan tambahkan domain ini ke daftar: Authentication > Settings > Authorized domains.`);
       } else {
         setError('Gagal masuk dengan Google. Silakan coba lagi nanti.');
       }
@@ -65,6 +69,9 @@ export default function Login() {
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
           setError('Email atau password salah.');
+          break;
+        case 'auth/operation-not-allowed':
+          setError('Metode masuk menggunakan Email/Sandi belum diaktifkan di Firebase Console Anda. Silakan aktifkan penyedia/provider "Email/Password" di menu: Authentication > Sign-in method.');
           break;
         default:
           setError(err.message || 'Terjadi kesalahan. Silakan coba lagi.');

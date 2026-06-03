@@ -8,7 +8,6 @@ import Reference from './components/Reference';
 import Login from './components/Login';
 import Settings from './components/Settings';
 import AdminDashboard from './components/AdminDashboard';
-import AdminLogin from './components/AdminLogin';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertCircle, History, Trash2, FileText, Loader2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
@@ -20,16 +19,14 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [isAdminPortal, setIsAdminPortal] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('portal') === 'admin' || localStorage.getItem('admin_authenticated') === 'true';
+    return params.get('portal') === 'admin';
   });
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => 
-    localStorage.getItem('admin_authenticated') === 'true'
-  );
   const [history, setHistory] = useState<any[]>([]);
   const [currentRPPH, setCurrentRPPH] = useState<any | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Listen for custom navigation events (from components deeper in tree)
   useEffect(() => {
@@ -72,18 +69,44 @@ export default function App() {
 
   // Admin Portal Views
   if (isAdminPortal) {
-    if (!isAdminAuthenticated) {
-      return <AdminLogin onLogin={() => {
-        setIsAdminAuthenticated(true);
-        localStorage.setItem('admin_authenticated', 'true');
-      }} />;
+    if (!user) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-serif font-bold text-slate-900 tracking-tight">Portal Administrator</h1>
+            <p className="text-slate-500 font-medium mt-2">Masuk dengan Akun Google Administrator Anda.</p>
+          </div>
+          <Login />
+        </div>
+      );
     }
+    if (!profile?.isAdmin) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-[40px] p-8 md:p-10 shadow-sm border border-slate-100 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 mb-6">
+              <AlertCircle size={32} className="text-rose-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Akses Ditolak</h2>
+            <p className="text-slate-500 font-medium mb-8">Akun Anda tidak memiliki hak akses administrator.</p>
+            <button 
+              onClick={() => {
+                setIsAdminPortal(false);
+                window.location.href = '/';
+              }}
+              className="bg-slate-900 text-white rounded-2xl py-4 px-8 font-bold hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-slate-200"
+            >
+              Kembali ke Beranda
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="min-h-screen bg-slate-50 p-6">
         <AdminDashboard onBack={() => {
-          setIsAdminAuthenticated(false);
           setIsAdminPortal(false);
-          localStorage.removeItem('admin_authenticated');
           window.location.href = '/'; // Clear portal param
         }} />
       </div>
@@ -100,9 +123,13 @@ export default function App() {
     setIsGenerating(true);
     setError(null);
     try {
+      const idToken = await user.getIdToken();
       const response = await fetch('/api/generate-rpph', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify(formData),
       });
 
@@ -256,7 +283,7 @@ export default function App() {
                         <p className="text-xs text-gray-400 font-medium uppercase tracking-tight">{item.identitas?.kelompokUsia || 'Semua Usia'}</p>
                       </div>
                       <button 
-                        onClick={() => deleteFromHistory(item.id)}
+                        onClick={() => setDeleteConfirmId(item.id)}
                         className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={20} />
@@ -272,6 +299,53 @@ export default function App() {
             <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Settings />
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal Konfirmasi Hapus */}
+        <AnimatePresence>
+          {deleteConfirmId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                onClick={() => setDeleteConfirmId(null)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative bg-white p-8 rounded-[32px] w-full max-w-md shadow-2xl border border-gray-100"
+              >
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 text-red-500 mx-auto">
+                  <Trash2 size={32} />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Hapus RPPH?</h3>
+                <p className="text-gray-500 text-sm text-center mb-8">Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin ingin menghapus RPPH ini dari riwayat?</p>
+                
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="flex-1 px-4 py-4 rounded-xl font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 transition-all uppercase tracking-wider text-xs"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (deleteConfirmId) {
+                        await deleteFromHistory(deleteConfirmId);
+                        setDeleteConfirmId(null);
+                      }
+                    }}
+                    className="flex-1 px-4 py-4 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 transition-all uppercase tracking-wider text-xs"
+                  >
+                    Ya, Hapus
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </main>

@@ -27,17 +27,23 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // --- Admins ---
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false; // Only manageable from backend or Firebase Console
+    }
+
     // --- User Profile ---
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'schoolName', 'schoolAddress', 'updatedAt'])
-      );
-
-      // Special rule: only system/server should ideally update this, but for simulation we allow limited fields
-      allow update: if isOwner(userId) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['isPro', 'dailyGenerations', 'lastGenerationDate', 'updatedAt'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'schoolName', 'schoolAddress', 'updatedAt']) ||
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['isPro', 'dailyGenerations', 'lastGenerationDate', 'updatedAt', 'displayName', 'photoURL', 'schoolName', 'schoolAddress']))
       );
 
       function isValidUser(data) {

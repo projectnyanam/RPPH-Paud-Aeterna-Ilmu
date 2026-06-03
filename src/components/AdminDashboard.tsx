@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { 
   Users, 
@@ -14,10 +14,12 @@ import {
   XCircle,
   Clock,
   LogOut,
-  ExternalLink
+  ExternalLink,
+  Wallet
 } from 'lucide-react';
 import { collection, query, getDocs, limit, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 interface Stats {
   totalUsers: number;
@@ -98,6 +100,29 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const chartData = useMemo(() => {
+    const last7Days = Array.from({length: 7}, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    }).reverse();
+
+    return last7Days.map(date => {
+      const count = rpphHistory.filter(item => {
+        if (!item.createdAt) return false;
+        const itemDate = new Date(item.createdAt.seconds * 1000).toISOString().split('T')[0];
+        return itemDate === date;
+      }).length;
+      return { 
+        date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }), 
+        count, 
+        cost: count * 15 // Asumsi Rp 15 per request (API Gemini)
+      }; 
+    });
+  }, [rpphHistory]);
+
+  const totalCostEstimate = stats.totalRPPH * 15;
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-32">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -119,28 +144,89 @@ export default function AdminDashboard({ onBack }: { onBack: () => void }) {
       </header>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard 
-          icon={<Users size={24} />}
+          icon={<Users size={20} />}
           label="Total Guru Terdaftar"
           value={stats.totalUsers}
-          subValue="+12 minggu ini"
           color="bg-indigo-50 text-indigo-600"
         />
         <StatCard 
-          icon={<FileText size={24} />}
+          icon={<FileText size={20} />}
           label="RPPH Berhasil Dibuat"
           value={stats.totalRPPH}
-          subValue="+85 total hari ini"
           color="bg-emerald-50 text-emerald-600"
         />
         <StatCard 
-          icon={<TrendingUp size={24} />}
+          icon={<TrendingUp size={20} />}
           label="Pengguna Premium"
           value={stats.totalPremium}
-          subValue="15.5% dari total guru"
           color="bg-amber-50 text-amber-600"
         />
+        <StatCard 
+          icon={<Wallet size={20} />}
+          label="Est. Biaya Operasional"
+          value={`Rp ${totalCostEstimate.toLocaleString('id-ID')}`}
+          color="bg-rose-50 text-rose-600"
+        />
+      </div>
+
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm space-y-6">
+          <div className="space-y-1">
+             <h2 className="text-xl font-bold text-gray-900">Tren Pembuatan RPPH</h2>
+             <p className="text-sm text-gray-500 font-medium">Aktivitas generasi AI dalam 7 hari terakhir.</p>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <RechartsTooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  labelStyle={{ color: '#64748b', fontWeight: 'bold', marginBottom: '8px' }}
+                />
+                <Area type="monotone" dataKey="count" name="Jumlah RPPH" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" isAnimationActive={true} animationDuration={1500} animationEasing="ease-in-out" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm space-y-6">
+          <div className="space-y-1">
+             <h2 className="text-xl font-bold text-gray-900">Estimasi Biaya API</h2>
+             <p className="text-sm text-gray-500 font-medium">Penggunaan API Gemini per hari (Rp 15/Req).</p>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} tickFormatter={(val) => `Rp${val}`} />
+                <RechartsTooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  labelStyle={{ color: '#64748b', fontWeight: 'bold', marginBottom: '8px' }}
+                  formatter={(value) => [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Estimasi Biaya']}
+                />
+                <Area type="monotone" dataKey="cost" name="Biaya" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorCost)" isAnimationActive={true} animationDuration={1500} animationEasing="ease-in-out" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -422,11 +508,13 @@ function StatCard({ icon, label, value, subValue, color }: any) {
       <div>
         <h3 className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">{label}</h3>
         <div className="flex items-end gap-3">
-          <div className="text-4xl font-serif font-bold text-gray-900 tracking-tight">{value}</div>
-          <div className="mb-1 text-xs font-bold text-emerald-500 flex items-center gap-1">
-            <TrendingUp size={12} />
-            {subValue}
-          </div>
+          <div className="text-3xl lg:text-4xl font-serif font-bold text-gray-900 tracking-tight">{value}</div>
+          {subValue && (
+            <div className="mb-1 text-xs font-bold text-emerald-500 flex items-center gap-1">
+              <TrendingUp size={12} />
+              {subValue}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
