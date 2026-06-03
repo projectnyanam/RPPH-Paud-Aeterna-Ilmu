@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
@@ -280,6 +279,7 @@ app.use('/api/*', (err: any, req: express.Request, res: express.Response, next: 
 // Vite middleware flow
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -300,6 +300,9 @@ async function startServer() {
 
 export const apiApp = app;
 
-if (process.env.NETLIFY !== "true") {
+const isNetlify = process.env.NETLIFY === 'true' || process.env.NETLIFY_DEV === 'true';
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_VERSION || !!process.env.AWS_EXECUTION_ENV;
+
+if (!isNetlify && !isLambda) {
   startServer();
 }
