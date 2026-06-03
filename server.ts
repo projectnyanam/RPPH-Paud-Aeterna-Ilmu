@@ -298,4 +298,8 @@ async function startServer() {
   });
 }
 
-startServer();
+export const apiApp = app;
+
+if (process.env.NETLIFY !== "true") {
+  startServer();
+}
