@@ -158,6 +158,9 @@ export default function App() {
       } else {
         const text = await response.text();
         console.error('Server returned non-JSON response:', text);
+        if (response.status === 404) {
+          throw new Error('API tidak ditemukan (404). Jika mengakses aplikasi yang di-publish, tekan tombol "Share" lagi untuk menerapkan update backend terbaru.');
+        }
         throw new Error(`Server bermasalah (${response.status} ${response.statusText}). Silakan coba lagi.`);
       }
       
